@@ -1,6 +1,5 @@
 import sys
 import csv
-from pathlib import Path
 
 tables = {
     "Administrator": {
@@ -100,7 +99,7 @@ tables = {
     "User": {
         "num_cols": 4,
         "rules": '''
-            uid INT, 
+            uid INT,
             email TEXT NOT NULL,
             username TEXT NOT NULL,
             joined DATE NOT NULL,
@@ -120,56 +119,55 @@ tables = {
     },
 }
 
-# order matters for foreign key constraints
 tables_in_order = [
     "User",
     "Organizer",
     "Participant",
     "Administrator",
-
     "Event",
     "Venue",
     "OffCampus",
     "OnCampus",
-
     "Slot",
     "Hosting",
     "Approval",
 ]
 
-'''
-(%s, %s, ...)
-'''
 def value_str(n):
     s = "%s, " * n
     s = s.removesuffix(", ")
     return f"({s})"
 
 def convert_null_to_none(row):
-    return list(map(lambda c: None if c == 'NULL' else c, row))
+    return [None if c == 'NULL' else c for c in row]
 
 def import_data(mydb):
-    # TODO handle faulty input like duplicate ids. 
-    # TODO ask on ed how to handle this
-
     folder = sys.argv[2]
     mycursor = mydb.cursor()
 
-    mycursor.execute("SET foreign_key_checks = 0")
-    for t in tables:
-        mycursor.execute(f"DROP TABLE IF EXISTS {t}")
-    mycursor.execute("SET foreign_key_checks = 1")
+    try:
+        mycursor.execute("SET foreign_key_checks = 0")
+        for t in reversed(tables_in_order):
+            mycursor.execute(f"DROP TABLE IF EXISTS {t}")
+        mycursor.execute("SET foreign_key_checks = 1")
 
-    for t in tables_in_order:
-        mycursor.execute(f"CREATE TABLE {t} ({tables[t]["rules"]})")
+        for t in tables_in_order:
+            mycursor.execute(f"CREATE TABLE {t} ({tables[t]['rules']})")
 
-    for t in tables_in_order:
-        with open(f"{folder}/{t}.csv", mode="r") as file:
-            csv_reader = csv.reader(file)
-            data = [convert_null_to_none(row) for row in csv_reader]
+        for t in tables_in_order:
+            with open(f"{folder}/{t}.csv", mode="r") as file:
+                csv_reader = csv.reader(file)
+                data = [convert_null_to_none(row) for row in csv_reader]
+                if data:
+                    mycursor.executemany(
+                        f"INSERT INTO {t} VALUES {value_str(tables[t]['num_cols'])}",
+                        data
+                    )
 
-            table = tables[t]
-            mycursor.executemany(f"INSERT INTO {t} VALUES {value_str(table["num_cols"])}", data)
-
-    mycursor.close()
-    mydb.commit()
+        mydb.commit()
+        print("Success")
+    except Exception as e:
+        mydb.rollback()
+        print("Fail")
+    finally:
+        mycursor.close()
