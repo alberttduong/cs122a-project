@@ -25,4 +25,4 @@ def insert_admin(mydb):
         mydb.rollback()
         print("Fail")
     finally:
-        mycursor.close()
+        mycursor.close()    
