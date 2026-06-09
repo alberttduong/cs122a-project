@@ -27,7 +27,7 @@ def participant_schedule(mydb):
             formatted = []
             for col in row:
                 if col is None:
-                    formatted.append("")
+                    formatted.append("NULL")
                 elif isinstance(col, datetime):
                     formatted.append(col.strftime("%Y-%m-%d %H:%M:%S"))
                 elif isinstance(col, date):
